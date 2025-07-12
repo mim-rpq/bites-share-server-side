@@ -31,11 +31,11 @@ async function run() {
 
     const foodCollection = client.db('bitesShare').collection('foods')
 
-
+    // get featured food by query 
     app.get('/foods/featuredFoods', async (req, res) => {
-      const query = { status: "available" }; 
+      const query = { status: "available" };
       const options = {
-        sort: { foodQuantity: -1 }, 
+        sort: { foodQuantity: -1 },
         limit: 6
       };
 
@@ -44,9 +44,14 @@ async function run() {
       res.send(result);
     });
 
+    // get available all food 
+    app.get('/foods/availableFoods', async (req, res) => {
+      const result = await foodCollection.find().toArray();
+      res.send(result)
+    })
 
 
-
+    // post foods
     app.post('/foods', async (req, res) => {
       const newFood = req.body;
       const result = await foodCollection.insertOne(newFood)
