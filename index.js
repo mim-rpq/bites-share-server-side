@@ -46,9 +46,19 @@ async function run() {
 
     // get available all food 
     app.get('/foods/availableFoods', async (req, res) => {
-      const result = await foodCollection.find().toArray();
-      res.send(result)
-    })
+      const sortOrder = req.query.sort === 'asc' ? 1 : -1;
+
+      const query = { status: 'available' };
+
+      const options = {
+        sort: { expiredDateTime: sortOrder }
+      };
+
+      const result = await foodCollection.find(query, options).toArray();
+      res.send(result);
+    });
+
+
 
 
     // post foods
