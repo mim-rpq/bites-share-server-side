@@ -32,9 +32,26 @@ async function run() {
     const foodCollection = client.db('bitesShare').collection('foods')
 
 
+    app.get('/foods/featuredFoods', async (req, res) => {
+      const query = { status: "available" }; 
+      const options = {
+        sort: { foodQuantity: -1 }, 
+        limit: 6
+      };
+
+      const cursor = foodCollection.find(query, options);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
 
 
 
+
+    app.post('/foods', async (req, res) => {
+      const newFood = req.body;
+      const result = await foodCollection.insertOne(newFood)
+      res.send(result)
+    })
 
 
 
@@ -86,12 +103,12 @@ run().catch(console.dir);
 
 
 
-app.get('/', (req, res)=>{
-    res.send('Bites share')
+app.get('/', (req, res) => {
+  res.send('Bites share')
 })
 
-app.listen(port, ()=>{
-    console.log(`Bites share server is running on port ${port}`);
+app.listen(port, () => {
+  console.log(`Bites share server is running on port ${port}`);
 })
 
 
