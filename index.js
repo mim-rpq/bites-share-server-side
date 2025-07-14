@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express();
 const port = process.env.PORT || 5000;
 // middleware
@@ -24,10 +24,12 @@ const client = new MongoClient(uri, {
   }
 });
 
+
+
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
 
     const foodCollection = client.db('bitesShare').collection('foods')
 
@@ -59,15 +61,60 @@ async function run() {
     });
 
 
+    app.get('/foods/myAddedFood/user', async (req, res) => {
+      const userEmail = req.query.email;
 
+      console.log('req header', req.headers);
+      const query = { userEmail };
 
-    // post foods
-    app.post('/foods', async (req, res) => {
-      const newFood = req.body;
-      const result = await foodCollection.insertOne(newFood)
+      const result = await foodCollection.find(query).toArray();
+      // console.log(result, 'result is');
       res.send(result)
+
+
+
     })
 
+    app.put('/foods/myAddedFood/:id', async(req, res)=>{
+            const id = req.params.id;
+            const filter ={_id: new ObjectId(id)}
+            const options ={ upsert : true};
+            const updatedFood = req.body
+            const updatedDoc ={
+                $set: updatedFood
+            }
+
+            const result = await foodCollection.updateOne(filter, updatedDoc, options);
+            res.send(result)
+        })
+
+
+    app.delete('/foods/myAddedFood/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await foodCollection.deleteOne(query);
+      res.send(result);
+    })
+
+      
+
+
+      app.get('/foods/availableFoods/:id', async (req, res) => {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await foodCollection.findOne(query);
+        res.send(result)
+      })
+
+
+
+
+      // post foods
+      app.post('/foods', async (req, res) => {
+        const newFood = req.body;
+        const result = await foodCollection.insertOne(newFood)
+        res.send(result)
+      })
 
 
 
@@ -92,15 +139,16 @@ async function run() {
 
 
 
-    // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
 
-  } finally {
-    // Ensures that the client will close when you finish/error
-    // await client.close();
+      // Send a ping to confirm a successful connection
+      await client.db("admin").command({ ping: 1 });
+      console.log("Pinged your deployment. You successfully connected to MongoDB!");
+
+    } finally {
+      // Ensures that the client will close when you finish/error
+      // await client.close();
+    }
   }
-}
 run().catch(console.dir);
 
 
@@ -118,13 +166,13 @@ run().catch(console.dir);
 
 
 
-app.get('/', (req, res) => {
-  res.send('Bites share')
-})
+  app.get('/', (req, res) => {
+    res.send('Bites share')
+  })
 
-app.listen(port, () => {
-  console.log(`Bites share server is running on port ${port}`);
-})
+  app.listen(port, () => {
+    console.log(`Bites share server is running on port ${port}`);
+  })
 
 
 
