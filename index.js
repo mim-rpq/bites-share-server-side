@@ -25,7 +25,19 @@ const client = new MongoClient(uri, {
 });
 
 
+const verifyToken = async (req, res, next)=>{
+  const authHeader = req.headers?.authorization
+  // console.log(authHeader);
 
+  if(!authHeader || !authHeader.startsWith('Bearer ')){
+    return res.status(401).send({message:'unauthorized access'})
+  }
+
+  const token = authHeader.split(' ')[1]
+  console.log('token', token);
+
+  next()
+}
 
 async function run() {
   try {
@@ -62,10 +74,8 @@ async function run() {
     });
 
 
-    app.get('/foods/myAddedFood/user', async (req, res) => {
+    app.get('/foods/myAddedFood/user', verifyToken, async (req, res) => {
       const userEmail = req.query.email;
-
-      console.log('req header', req.headers);
       const query = { userEmail };
 
       const result = await foodCollection.find(query).toArray();
@@ -76,7 +86,7 @@ async function run() {
 
     })
 
-    app.put('/foods/myAddedFood/:id', async(req, res)=>{
+    app.put('/foods/myAddedFood/:id', verifyToken, async(req, res)=>{
             const id = req.params.id;
             const filter ={_id: new ObjectId(id)}
             const options ={ upsert : true};
@@ -90,7 +100,7 @@ async function run() {
         })
 
 
-    app.delete('/foods/myAddedFood/:id', async (req, res) => {
+    app.delete('/foods/myAddedFood/:id', verifyToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await foodCollection.deleteOne(query);
