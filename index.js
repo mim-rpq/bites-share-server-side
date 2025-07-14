@@ -4,6 +4,8 @@ const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express();
 const port = process.env.PORT || 5000;
+const admin = require("firebase-admin");
+const serviceAccount = require("./bites-share-key.json");
 // middleware
 
 app.use(cors());
@@ -25,18 +27,36 @@ const client = new MongoClient(uri, {
 });
 
 
-const verifyToken = async (req, res, next)=>{
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
+
+
+
+const verifyToken = async (req, res, next) => {
   const authHeader = req.headers?.authorization
   // console.log(authHeader);
 
-  if(!authHeader || !authHeader.startsWith('Bearer ')){
-    return res.status(401).send({message:'unauthorized access'})
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).send({ message: 'unauthorized access' })
   }
 
   const token = authHeader.split(' ')[1]
-  console.log('token', token);
 
-  next()
+  try {
+    const decoded = await admin.auth().verifyIdToken(token)
+    req.firebaseUser = decoded;
+    next()
+    console.log(decoded);
+  }
+
+  catch (error) {
+    return res.status(401).send({ message: 'unauthorized access' })
+  }
+  // console.log('token', token);
+
+
 }
 
 async function run() {
@@ -76,7 +96,14 @@ async function run() {
 
     app.get('/foods/myAddedFood/user', verifyToken, async (req, res) => {
       const userEmail = req.query.email;
-      const query = { userEmail };
+
+      // if(email !== req.decoded.email){
+      //   return res.status(403).message({message:'forbidden access'})
+      // }
+
+
+      const query = { userEmail: req.firebaseUser.email };
+
 
       const result = await foodCollection.find(query).toArray();
       // console.log(result, 'result is');
@@ -86,49 +113,67 @@ async function run() {
 
     })
 
-    app.put('/foods/myAddedFood/:id', verifyToken, async(req, res)=>{
-            const id = req.params.id;
-            const filter ={_id: new ObjectId(id)}
-            const options ={ upsert : true};
-            const updatedFood = req.body
-            const updatedDoc ={
-                $set: updatedFood
-            }
+    app.put('/foods/myAddedFood/:id', verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const updatedFood = req.body
+      const existing = await foodCollection.findOne({ _id: new ObjectId(id) });
 
-            const result = await foodCollection.updateOne(filter, updatedDoc, options);
-            res.send(result)
-        })
+      if (!existing) {
+        return res.status(404).send({ message: 'Food not found' });
+      }
+
+      if (existing.userEmail !== req.firebaseUser.email) {
+        return res.status(403).send({ message: 'Forbidden: You cannot update this food' });
+      }
+
+      const filter = { _id: new ObjectId(id) }
+      const options = { upsert: true };
+
+      const updatedDoc = {
+        $set: updatedFood
+      }
+
+      const result = await foodCollection.updateOne(filter, updatedDoc, options);
+      res.send(result)
+    })
 
 
     app.delete('/foods/myAddedFood/:id', verifyToken, async (req, res) => {
       const id = req.params.id;
+      const existing = await foodCollection.findOne({ _id: new ObjectId(id) });
+
+
+      if (!existing) {
+        return res.status(404).send({ message: 'Food not found' });
+      }
+
+      if (existing.userEmail !== req.firebaseUser.email) {
+        return res.status(403).send({ message: 'Forbidden: You cannot delete this food' });
+      }
       const query = { _id: new ObjectId(id) };
       const result = await foodCollection.deleteOne(query);
       res.send(result);
     })
 
-      
-
-
-      app.get('/foods/availableFoods/:id', async (req, res) => {
-        const id = req.params.id;
-        const query = { _id: new ObjectId(id) };
-        const result = await foodCollection.findOne(query);
-        res.send(result)
-      })
 
 
 
-
-      // post foods
-      app.post('/foods', async (req, res) => {
-        const newFood = req.body;
-        const result = await foodCollection.insertOne(newFood)
-        res.send(result)
-      })
-
+    app.get('/foods/availableFoods/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await foodCollection.findOne(query);
+      res.send(result)
+    })
 
 
+
+
+    // post foods
+    app.post('/foods', async (req, res) => {
+      const newFood = req.body;
+      const result = await foodCollection.insertOne(newFood)
+      res.send(result)
+    })
 
 
 
@@ -151,15 +196,18 @@ async function run() {
 
 
 
-      // Send a ping to confirm a successful connection
-      await client.db("admin").command({ ping: 1 });
-      console.log("Pinged your deployment. You successfully connected to MongoDB!");
 
-    } finally {
-      // Ensures that the client will close when you finish/error
-      // await client.close();
-    }
+
+
+    // Send a ping to confirm a successful connection
+    await client.db("admin").command({ ping: 1 });
+    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+
+  } finally {
+    // Ensures that the client will close when you finish/error
+    // await client.close();
   }
+}
 run().catch(console.dir);
 
 
@@ -177,13 +225,13 @@ run().catch(console.dir);
 
 
 
-  app.get('/', (req, res) => {
-    res.send('Bites share')
-  })
+app.get('/', (req, res) => {
+  res.send('Bites share')
+})
 
-  app.listen(port, () => {
-    console.log(`Bites share server is running on port ${port}`);
-  })
+app.listen(port, () => {
+  console.log(`Bites share server is running on port ${port}`);
+})
 
 
 
