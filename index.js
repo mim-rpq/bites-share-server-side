@@ -48,7 +48,7 @@ const verifyToken = async (req, res, next) => {
     const decoded = await admin.auth().verifyIdToken(token)
     req.firebaseUser = decoded;
     next()
-    console.log(decoded);
+    // console.log(decoded);
   }
 
   catch (error) {
@@ -95,16 +95,17 @@ async function run() {
     });
 
 
+    // get my added food 
     app.get('/foods/myAddedFood/user', verifyToken, async (req, res) => {
       const query = { userEmail: req.firebaseUser.email };
       const result = await foodCollection.find(query).toArray();
       res.send(result)
     })
 
-    // food request api 
+    // food request api -------------------------------------------------
 
 
-
+    // get food request 
     app.get('/foodRequests', verifyToken, async (req, res) => {
       const query = { requesterEmail: req.firebaseUser.email };
       // console.log('query',query);
@@ -124,55 +125,60 @@ async function run() {
       res.send(result)
     })
 
+    const { ObjectId } = require('mongodb');
 
 
-    app.post('/foodRequests', async (req, res) => {
-      const request = req.body;
-      const result = await foodRequestCollection.insertOne(request);
+    // post food requests 
 
-      if (result.insertedId) {
-        const foodId = request.foodId;
-        const updateResult = await foodCollection.updateOne(
-          { _id: new ObjectId(foodId) },
-          { $set: { status: 'requested' } }
-        );
+    app.post('/foodRequests', verifyToken, async (req, res) => {
+      try {
+        const request = req.body;
+        request.requestDate = new Date();
 
-        // console.log('Food status updated:', updateResult.modifiedCount);
+        const requesterEmail = req.firebaseUser.email;
+
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+
+        const todayEnd = new Date();
+        todayEnd.setHours(23, 59, 59, 999);
+
+        const requestCountToday = await foodRequestCollection.countDocuments({
+          requesterEmail: requesterEmail,
+          requestDate: {
+            $gte: todayStart,
+            $lte: todayEnd
+          }
+        });
+
+
+        if (requestCountToday >= 3) {
+          return res.status(403).json({
+            message: 'You can only make 3 requests per day.'
+          });
+        }
+
+        const result = await foodRequestCollection.insertOne(request);
+
+        if (result.insertedId) {
+          const foodId = request.foodId;
+          await foodCollection.updateOne(
+            { _id: new ObjectId(foodId) },
+            { $set: { status: 'requested' } }
+          );
+        }
+
+        res.send(result);
+
+      } catch (error) {
+        // console.error('Error in /foodRequests:', error);
+        res.status(500).json({ message: 'Server error' });
       }
-
-      res.send(result);
     });
 
 
 
-
-
-
-    app.put('/foods/myAddedFood/:id', verifyToken, async (req, res) => {
-      const id = req.params.id;
-      const updatedFood = req.body
-      const existing = await foodCollection.findOne({ _id: new ObjectId(id) });
-
-      if (!existing) {
-        return res.status(404).send({ message: 'Food not found' });
-      }
-
-      if (existing.userEmail !== req.firebaseUser.email) {
-        return res.status(403).send({ message: 'Forbidden: You cannot update this food' });
-      }
-
-      const filter = { _id: new ObjectId(id) }
-      const options = { upsert: true };
-
-      const updatedDoc = {
-        $set: updatedFood
-      }
-
-      const result = await foodCollection.updateOne(filter, updatedDoc, options);
-      res.send(result)
-    })
-
-
+    // delete my added food 
     app.delete('/foods/myAddedFood/:id', verifyToken, async (req, res) => {
       const id = req.params.id;
       const existing = await foodCollection.findOne({ _id: new ObjectId(id) });
@@ -192,7 +198,7 @@ async function run() {
 
 
 
-
+    // get available food 
     app.get('/foods/availableFoods/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
@@ -219,24 +225,11 @@ async function run() {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    
 
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    // await client.db("admin").command({ ping: 1 });
+    // console.log("Pinged your deployment. You successfully connected to MongoDB!");
 
   } finally {
     // Ensures that the client will close when you finish/error
@@ -244,19 +237,6 @@ async function run() {
   }
 }
 run().catch(console.dir);
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
