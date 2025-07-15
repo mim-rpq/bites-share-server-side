@@ -96,32 +96,56 @@ async function run() {
 
 
     app.get('/foods/myAddedFood/user', verifyToken, async (req, res) => {
-      const userEmail = req.query.email;
-
-      // if(email !== req.decoded.email){
-      //   return res.status(403).message({message:'forbidden access'})
-      // }
-
-
       const query = { userEmail: req.firebaseUser.email };
-
-
       const result = await foodCollection.find(query).toArray();
-      // console.log(result, 'result is');
       res.send(result)
-
-
-
     })
 
-  // food request api 
+    // food request api 
 
-  app.post('/foodRequests', async(req, res)=>{
-    const request = req.body;
-    console.log(request);
-    const  result = await foodRequestCollection.insertOne(request);
-    res.send(result)
-  })
+
+
+    app.get('/foodRequests', verifyToken, async (req, res) => {
+      const query = { requesterEmail: req.firebaseUser.email };
+      // console.log('query',query);
+      const result = await foodRequestCollection.find(query).toArray();
+
+      for (const request of result) {
+        const foodId = request.foodId;
+        const reqQuery = { _id: new ObjectId(foodId) }
+
+        const food = await foodCollection.findOne(reqQuery)
+        request.donorName = food.userName
+        request.expiredDateTime = food.expiredDateTime
+        request.pickupLocation = food.pickupLocation
+        request.foodName = food.foodName
+
+      }
+      res.send(result)
+    })
+
+
+
+    app.post('/foodRequests', async (req, res) => {
+      const request = req.body;
+      const result = await foodRequestCollection.insertOne(request);
+
+      if (result.insertedId) {
+        const foodId = request.foodId;
+        const updateResult = await foodCollection.updateOne(
+          { _id: new ObjectId(foodId) },
+          { $set: { status: 'requested' } }
+        );
+
+        // console.log('Food status updated:', updateResult.modifiedCount);
+      }
+
+      res.send(result);
+    });
+
+
+
+
 
 
     app.put('/foods/myAddedFood/:id', verifyToken, async (req, res) => {
