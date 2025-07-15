@@ -65,6 +65,7 @@ async function run() {
     // await client.connect();
 
     const foodCollection = client.db('bitesShare').collection('foods')
+    const foodRequestCollection = client.db('bitesShare').collection('foodRequest')
 
     // get featured food by query 
     app.get('/foods/featuredFoods', async (req, res) => {
@@ -112,6 +113,16 @@ async function run() {
 
 
     })
+
+  // food request api 
+
+  app.post('/foodRequests', async(req, res)=>{
+    const request = req.body;
+    console.log(request);
+    const  result = await foodRequestCollection.insertOne(request);
+    res.send(result)
+  })
+
 
     app.put('/foods/myAddedFood/:id', verifyToken, async (req, res) => {
       const id = req.params.id;
