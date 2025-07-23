@@ -1,3 +1,4 @@
 node_modules
 .env
 bites-share-key.json
+.vercel

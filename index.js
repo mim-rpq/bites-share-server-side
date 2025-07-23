@@ -5,15 +5,12 @@ const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express();
 const port = process.env.PORT || 5000;
 const admin = require("firebase-admin");
-const serviceAccount = require("./bites-share-key.json");
+const decoded = Buffer.from(process.env.FB_SERVICE_KEY, 'base64').toString('utf8')
+const serviceAccount = JSON.parse(decoded);
 // middleware
 
 app.use(cors());
 app.use(express.json());
-
-
-
-
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ojps7gr.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -136,7 +133,6 @@ async function run() {
         request.requestDate = new Date();
 
         const requesterEmail = req.firebaseUser.email;
-
         const todayStart = new Date();
         todayStart.setHours(0, 0, 0, 0);
 
@@ -175,6 +171,19 @@ async function run() {
         res.status(500).json({ message: 'Server error' });
       }
     });
+
+       app.put('/foods/myAddedFood/:id', async(req, res)=>{
+            const id = req.params.id;
+            const filter ={_id: new ObjectId(id)}
+            const options ={ upsert : true};
+            const updatedFood = req.body
+            const updatedDoc ={
+                $set: updatedFood
+            }
+
+            const result = await foodCollection.updateOne(filter, updatedDoc, options);
+            res.send(result)
+        })
 
 
 
