@@ -63,6 +63,7 @@ async function run() {
 
     const foodCollection = client.db('bitesShare').collection('foods')
     const foodRequestCollection = client.db('bitesShare').collection('foodRequest')
+    const contactCollection = client.db('bitesShare').collection('contacts');
 
     // get featured food by query 
     app.get('/foods/featuredFoods', async (req, res) => {
@@ -172,18 +173,45 @@ async function run() {
       }
     });
 
-       app.put('/foods/myAddedFood/:id', async(req, res)=>{
-            const id = req.params.id;
-            const filter ={_id: new ObjectId(id)}
-            const options ={ upsert : true};
-            const updatedFood = req.body
-            const updatedDoc ={
-                $set: updatedFood
-            }
+    app.post('/contact', async (req, res) => {
+      try {
+        const { name, email, message } = req.body;
+        if (!name || !email || !message) {
+          return res.status(400).json({ success: false, message: 'All fields are required.' });
+        }
 
-            const result = await foodCollection.updateOne(filter, updatedDoc, options);
-            res.send(result)
-        })
+        const newContact = {
+          name,
+          email,
+          message,
+          createdAt: new Date()
+        };
+
+        const result = await contactCollection.insertOne(newContact);
+
+        if (result.insertedId) {
+          res.json({ success: true, message: 'Contact saved successfully.' });
+        } else {
+          res.status(500).json({ success: false, message: 'Failed to save contact.' });
+        }
+      } catch (error) {
+        console.error('Error in /contact:', error);
+        res.status(500).json({ success: false, message: 'Server error, please try again later.' });
+      }
+    });
+
+    app.put('/foods/myAddedFood/:id', async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) }
+      const options = { upsert: true };
+      const updatedFood = req.body
+      const updatedDoc = {
+        $set: updatedFood
+      }
+
+      const result = await foodCollection.updateOne(filter, updatedDoc, options);
+      res.send(result)
+    })
 
 
 
@@ -234,7 +262,7 @@ async function run() {
 
 
 
-    
+
 
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
